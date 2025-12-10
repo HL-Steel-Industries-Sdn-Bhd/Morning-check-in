@@ -69,6 +69,15 @@
             box-shadow: 0 0 0 1000px rgba(0, 0, 0, 0.5);
         }
         
+        .camera-loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 16px;
+        }
+        
         .controls {
             margin: 20px 0;
         }
@@ -197,6 +206,7 @@
         
         <div class="camera-container">
             <video id="video" playsinline></video>
+            <div class="camera-loading" id="cameraLoading">Starting camera...</div>
             <div class="scan-overlay"></div>
         </div>
         
@@ -237,6 +247,7 @@
         
         // DOM elements
         const video = document.getElementById('video');
+        const cameraLoading = document.getElementById('cameraLoading');
         const startButton = document.getElementById('startButton');
         const stopButton = document.getElementById('stopButton');
         const loading = document.getElementById('loading');
@@ -247,10 +258,14 @@
         
         let scanning = false;
         let stream = null;
+        let animationFrameId = null;
         
         // Start camera
         startButton.onclick = async () => {
             try {
+                // Show loading
+                cameraLoading.style.display = 'block';
+                
                 // Request camera access
                 stream = await navigator.mediaDevices.getUserMedia({
                     video: {
@@ -261,21 +276,35 @@
                 });
                 
                 video.srcObject = stream;
-                video.play();
                 
-                // Show video and start scanning
-                startButton.style.display = 'none';
-                stopButton.style.display = 'inline-block';
-                scanning = true;
+                // Wait for video to be ready
+                video.onloadedmetadata = () => {
+                    video.play();
+                    cameraLoading.style.display = 'none';
+                    
+                    // Show video and start scanning
+                    startButton.style.display = 'none';
+                    stopButton.style.display = 'inline-block';
+                    scanning = true;
+                    
+                    // Start QR scanning
+                    scanQRCode();
+                    
+                    status.textContent = "Camera started. Point at QR code.";
+                    status.className = "status";
+                    status.style.display = "block";
+                };
                 
-                // Start QR scanning
-                scanQRCode();
-                
-                status.textContent = "Camera started. Point at QR code.";
-                status.className = "status";
-                status.style.display = "block";
+                // Handle video play errors
+                video.onerror = () => {
+                    cameraLoading.style.display = 'none';
+                    status.textContent = "Error starting video. Please try again.";
+                    status.className = "status error";
+                    status.style.display = "block";
+                };
                 
             } catch (err) {
+                cameraLoading.style.display = 'none';
                 console.error("Camera error:", err);
                 status.textContent = "Camera error: " + err.message;
                 status.className = "status error";
@@ -285,12 +314,7 @@
         
         // Stop camera
         stopButton.onclick = () => {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-                stream = null;
-            }
-            
-            scanning = false;
+            stopScanning();
             startButton.style.display = 'inline-block';
             stopButton.style.display = 'none';
             
@@ -298,49 +322,76 @@
             status.className = "status";
         };
         
+        function stopScanning() {
+            scanning = false;
+            
+            // Stop animation frame
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            
+            // Stop video stream
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            
+            // Clear video source
+            video.srcObject = null;
+        }
+        
         // QR Code scanning function
         function scanQRCode() {
-            if (!scanning) return;
+            if (!scanning || !stream) return;
             
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
+            // Check if video is ready and has dimensions
+            if (video.videoWidth === 0 || video.videoHeight === 0) {
+                // Video not ready yet, try again in next frame
+                animationFrameId = requestAnimationFrame(scanQRCode);
+                return;
+            }
             
-            // Set canvas size to video size
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            
-            // Draw video frame to canvas
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            // Get image data for QR scanning
-            const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-            
-            // Try to decode QR code
-            const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                inversionAttempts: "dontInvert",
-            });
-            
-            if (code) {
-                // QR code found!
-                handleQRCode(code.data);
-            } else {
-                // No QR code found, continue scanning
+            try {
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                
+                // Set canvas size to video size
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                
+                // Draw video frame to canvas
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // Get image data for QR scanning
+                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                
+                // Try to decode QR code
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert",
+                });
+                
+                if (code) {
+                    // QR code found!
+                    handleQRCode(code.data);
+                } else {
+                    // No QR code found, continue scanning
+                    if (scanning) {
+                        animationFrameId = requestAnimationFrame(scanQRCode);
+                    }
+                }
+            } catch (err) {
+                console.error("Scanning error:", err);
+                // Continue scanning despite errors
                 if (scanning) {
-                    requestAnimationFrame(scanQRCode);
+                    animationFrameId = requestAnimationFrame(scanQRCode);
                 }
             }
         }
         
         function handleQRCode(data) {
             // Stop scanning
-            scanning = false;
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-                stream = null;
-            }
-            
-            stopButton.style.display = 'none';
-            startButton.style.display = 'inline-block';
+            stopScanning();
             
             // Show the scanned content
             result.style.display = 'block';
@@ -369,6 +420,10 @@
                     status.style.display = 'none';
                     startButton.click();
                 };
+                
+                // Clear existing buttons and add retry
+                const existingButtons = result.querySelectorAll('button');
+                existingButtons.forEach(btn => btn.remove());
                 
                 result.appendChild(retryButton);
             }
@@ -419,12 +474,17 @@
             }, 1500);
         }
         
-        // Auto-start camera on page load (optional, can be removed if you prefer manual start)
+        // Auto-start camera on page load (optional)
         window.addEventListener('load', () => {
             // Small delay to let page render first
             setTimeout(() => {
                 startButton.click();
             }, 500);
+        });
+        
+        // Clean up when page is unloaded
+        window.addEventListener('beforeunload', () => {
+            stopScanning();
         });
     </script>
 </body>
