@@ -40,6 +40,27 @@
             padding: 10px;
         }
         
+        .permission-prompt {
+            background: #f8f9fa;
+            border: 2px dashed #dee2e6;
+            border-radius: 15px;
+            padding: 30px;
+            margin: 20px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .permission-prompt.hidden {
+            display: none;
+        }
+        
+        .camera-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        
         .camera-container {
             width: 100%;
             height: 300px;
@@ -49,6 +70,11 @@
             position: relative;
             overflow: hidden;
             background: #000;
+            display: none;
+        }
+        
+        .camera-container.active {
+            display: block;
         }
         
         #video {
@@ -78,33 +104,73 @@
             font-size: 16px;
         }
         
+        .camera-error {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            background: rgba(244, 67, 54, 0.8);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            max-width: 90%;
+        }
+        
         .controls {
             margin: 20px 0;
         }
         
-        button {
+        .primary-btn {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
-            padding: 12px 30px;
-            font-size: 16px;
+            padding: 16px 40px;
+            font-size: 18px;
             border-radius: 25px;
             cursor: pointer;
             font-weight: 600;
-            transition: transform 0.2s;
+            transition: all 0.3s ease;
+            margin: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .primary-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .primary-btn:active {
+            transform: translateY(0);
+        }
+        
+        .secondary-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
             margin: 5px;
         }
         
-        button:hover {
-            transform: scale(1.05);
-        }
-        
-        button:active {
-            transform: scale(0.95);
-        }
-        
-        #stopButton {
+        .danger-btn {
             background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+            margin: 5px;
         }
         
         .status {
@@ -116,11 +182,14 @@
             display: none;
         }
         
+        .status.show {
+            display: block;
+        }
+        
         .success {
             background-color: rgba(76, 175, 80, 0.15);
             color: #2E7D32;
             border: 2px solid #4CAF50;
-            display: block;
             text-shadow: 0 1px 1px rgba(255,255,255,0.5);
         }
         
@@ -128,7 +197,6 @@
             background-color: rgba(244, 67, 54, 0.15);
             color: #D32F2F;
             border: 2px solid #F44336;
-            display: block;
         }
         
         .loading {
@@ -153,10 +221,15 @@
             display: none;
         }
         
+        .result.show {
+            display: block;
+        }
+        
         .qr-info {
             font-size: 12px;
             color: #666;
             margin-top: 5px;
+            margin-bottom: 10px;
         }
         
         /* Mobile optimizations */
@@ -175,14 +248,18 @@
                 height: 250px;
             }
             
+            .permission-prompt {
+                padding: 20px;
+            }
+            
             .scan-overlay {
                 width: 180px;
                 height: 180px;
             }
             
-            button {
-                padding: 10px 25px;
-                font-size: 15px;
+            .primary-btn {
+                padding: 14px 30px;
+                font-size: 16px;
             }
         }
         
@@ -204,33 +281,54 @@
     <div class="container">
         <h1 class="greeting" id="greeting">Good Morning!</h1>
         
-        <div class="camera-container">
+        <!-- Permission prompt (shown first) -->
+        <div class="permission-prompt" id="permissionPrompt">
+            <div class="camera-icon">📷</div>
+            <h3>Camera Access Required</h3>
+            <p style="color: #666; margin: 15px 0;">To scan QR codes, we need access to your camera.</p>
+            <p style="color: #888; font-size: 13px; margin-bottom: 20px;">
+                Please allow camera permissions when prompted.
+            </p>
+            <button class="primary-btn" id="allowCameraBtn">
+                <span style="font-size: 20px;">📷</span>
+                Allow Camera Access
+            </button>
+        </div>
+        
+        <!-- Camera container (hidden until permission granted) -->
+        <div class="camera-container" id="cameraContainer">
             <video id="video" playsinline></video>
             <div class="camera-loading" id="cameraLoading">Starting camera...</div>
+            <div class="camera-error" id="cameraError" style="display:none;"></div>
             <div class="scan-overlay"></div>
         </div>
         
-        <div class="controls">
-            <button id="startButton">Start Camera</button>
-            <button id="stopButton" style="display:none;">Stop Camera</button>
+        <!-- Camera controls -->
+        <div class="controls" id="cameraControls" style="display:none;">
+            <button class="danger-btn" id="stopButton">Stop Camera</button>
+            <button class="secondary-btn" id="switchCameraBtn">Switch Camera</button>
         </div>
         
+        <!-- Loading indicator -->
         <div class="loading" id="loading">
             ⏳ Processing QR Code...
         </div>
         
+        <!-- Status messages -->
         <div class="status" id="status"></div>
         
+        <!-- Result display -->
         <div class="result" id="result">
             <strong>Scanned QR Content:</strong>
-            <div id="qrContent"></div>
+            <div id="qrContent" style="margin: 10px 0; padding: 10px; background: white; border-radius: 5px;"></div>
             <div class="qr-info">If this is the correct Morning Check-In QR code, click Submit</div>
-            <button id="submitButton" style="margin-top:10px; display:none;">Submit Check-In</button>
+            <button class="primary-btn" id="submitButton" style="display:none;">Submit Check-In</button>
+            <button class="secondary-btn" id="retryButton" style="display:none;">Try Again</button>
         </div>
         
-        <p class="instructions">
-            Please allow camera permissions when prompted.<br>
-            Point the camera at the Morning Check-In QR code.
+        <!-- Instructions -->
+        <p class="instructions" id="instructions">
+            Click "Allow Camera Access" to start scanning QR codes.
         </p>
     </div>
     
@@ -247,79 +345,124 @@
         
         // DOM elements
         const video = document.getElementById('video');
+        const permissionPrompt = document.getElementById('permissionPrompt');
+        const cameraContainer = document.getElementById('cameraContainer');
         const cameraLoading = document.getElementById('cameraLoading');
-        const startButton = document.getElementById('startButton');
+        const cameraError = document.getElementById('cameraError');
+        const cameraControls = document.getElementById('cameraControls');
+        const instructions = document.getElementById('instructions');
+        
+        const allowCameraBtn = document.getElementById('allowCameraBtn');
         const stopButton = document.getElementById('stopButton');
+        const switchCameraBtn = document.getElementById('switchCameraBtn');
+        
         const loading = document.getElementById('loading');
         const status = document.getElementById('status');
         const result = document.getElementById('result');
         const qrContent = document.getElementById('qrContent');
         const submitButton = document.getElementById('submitButton');
+        const retryButton = document.getElementById('retryButton');
         
         let scanning = false;
         let stream = null;
         let animationFrameId = null;
+        let currentFacingMode = 'environment'; // Start with rear camera
         
-        // Start camera
-        startButton.onclick = async () => {
+        // Allow Camera button click handler
+        allowCameraBtn.onclick = async () => {
             try {
                 // Show loading
                 cameraLoading.style.display = 'block';
+                cameraError.style.display = 'none';
                 
-                // Request camera access
+                // Request camera access - this is where the browser will show the permission dialog
                 stream = await navigator.mediaDevices.getUserMedia({
                     video: {
-                        facingMode: 'environment', // Prefer rear camera
+                        facingMode: currentFacingMode,
                         width: { ideal: 1280 },
                         height: { ideal: 720 }
                     }
                 });
                 
+                // Hide permission prompt and show camera
+                permissionPrompt.classList.add('hidden');
+                cameraContainer.classList.add('active');
+                cameraControls.style.display = 'block';
+                instructions.textContent = "Point the camera at the Morning Check-In QR code.";
+                
                 video.srcObject = stream;
                 
                 // Wait for video to be ready
-                video.onloadedmetadata = () => {
-                    video.play();
-                    cameraLoading.style.display = 'none';
-                    
-                    // Show video and start scanning
-                    startButton.style.display = 'none';
-                    stopButton.style.display = 'inline-block';
-                    scanning = true;
-                    
-                    // Start QR scanning
-                    scanQRCode();
-                    
-                    status.textContent = "Camera started. Point at QR code.";
-                    status.className = "status";
-                    status.style.display = "block";
-                };
+                await video.play();
                 
-                // Handle video play errors
-                video.onerror = () => {
-                    cameraLoading.style.display = 'none';
-                    status.textContent = "Error starting video. Please try again.";
-                    status.className = "status error";
-                    status.style.display = "block";
-                };
+                // Hide loading and start scanning
+                cameraLoading.style.display = 'none';
+                scanning = true;
+                
+                // Start QR scanning
+                scanQRCode();
+                
+                showStatus("Camera started. Point at QR code.", "info");
                 
             } catch (err) {
-                cameraLoading.style.display = 'none';
                 console.error("Camera error:", err);
-                status.textContent = "Camera error: " + err.message;
-                status.className = "status error";
-                status.style.display = "block";
+                cameraLoading.style.display = 'none';
+                
+                let errorMessage = "Camera error: ";
+                
+                if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+                    errorMessage = "❌ Camera permission denied. Please allow camera access in your browser settings.";
+                } else if (err.name === 'NotFoundError') {
+                    errorMessage = "❌ No camera found on this device.";
+                } else if (err.name === 'NotReadableError') {
+                    errorMessage = "❌ Camera is already in use by another application.";
+                } else {
+                    errorMessage = "❌ Error accessing camera: " + err.message;
+                }
+                
+                cameraError.textContent = errorMessage;
+                cameraError.style.display = 'block';
+                
+                // Show retry button
+                allowCameraBtn.textContent = "Try Again";
+                allowCameraBtn.style.background = "linear-gradient(135deg, #ff9800 0%, #f57c00 100%)";
+                
+                showStatus(errorMessage, "error");
             }
         };
         
         // Stop camera
         stopButton.onclick = () => {
             stopScanning();
-            startButton.style.display = 'inline-block';
-            stopButton.style.display = 'none';
+            permissionPrompt.classList.remove('hidden');
+            cameraContainer.classList.remove('active');
+            cameraControls.style.display = 'none';
+            result.classList.remove('show');
+            instructions.textContent = "Click 'Allow Camera Access' to start scanning QR codes.";
             
-            status.textContent = "Camera stopped.";
-            status.className = "status";
+            // Reset button
+            allowCameraBtn.textContent = "Allow Camera Access";
+            allowCameraBtn.style.background = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)";
+            
+            showStatus("Camera stopped.", "info");
+        };
+        
+        // Switch camera (front/back)
+        switchCameraBtn.onclick = () => {
+            currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+            
+            // Restart camera with new facing mode
+            stopScanning();
+            allowCameraBtn.click();
+            
+            showStatus(`Switched to ${currentFacingMode === 'environment' ? 'rear' : 'front'} camera`, "info");
+        };
+        
+        // Retry button
+        retryButton.onclick = () => {
+            result.classList.remove('show');
+            status.classList.remove('show');
+            allowCameraBtn.click();
         };
         
         function stopScanning() {
@@ -394,49 +537,34 @@
             stopScanning();
             
             // Show the scanned content
-            result.style.display = 'block';
+            result.classList.add('show');
             qrContent.textContent = data;
             
             // Check if this is our expected QR code
             const expectedQRContent = "MORNING-CHECKIN-VERIFIED-2024";
             
             if (data === expectedQRContent) {
-                status.textContent = "✓ Valid QR Code Detected!";
-                status.className = "status success";
-                status.style.display = "block";
+                showStatus("✓ Valid QR Code Detected!", "success");
                 
-                submitButton.style.display = 'block';
+                submitButton.style.display = 'inline-block';
+                retryButton.style.display = 'none';
                 submitButton.onclick = () => submitCheckIn(userName, data);
             } else {
-                status.textContent = "❌ Invalid QR Code. Please scan the Morning Check-In QR code.";
-                status.className = "status error";
-                status.style.display = "block";
+                showStatus("❌ Invalid QR Code. Please scan the Morning Check-In QR code.", "error");
                 
-                // Show retry button
-                const retryButton = document.createElement('button');
-                retryButton.textContent = 'Try Again';
-                retryButton.onclick = () => {
-                    result.style.display = 'none';
-                    status.style.display = 'none';
-                    startButton.click();
-                };
-                
-                // Clear existing buttons and add retry
-                const existingButtons = result.querySelectorAll('button');
-                existingButtons.forEach(btn => btn.remove());
-                
-                result.appendChild(retryButton);
+                submitButton.style.display = 'none';
+                retryButton.style.display = 'inline-block';
             }
         }
         
         function submitCheckIn(userName, qrContent) {
             loading.style.display = 'block';
-            status.style.display = 'none';
+            status.classList.remove('show');
             
             // Prepare the form data for GAS
             const form = document.createElement('form');
             form.method = 'POST';
-            form.action = 'https://script.google.com/macros/s/AKfycbwzBIO0awdlEg_Y_SySC-_9yI0bVZMjAZ50d5xYwWZMSMoc31OXjIeFh1XS3UGWY7tu5A/exec'; // Replace with your GAS URL
+            form.action = 'https://script.google.com/macros/s/AKfycbwzBIO0awdlEg_Y_SySC-_9yI0bVZMjAZ50d5xYwWZMSMoc31OXjIeFh1XS3UGWY7tu5A/exec'; // REPLACE WITH YOUR URL
             form.target = 'hiddenFrame';
             
             // Create hidden inputs
@@ -461,30 +589,45 @@
             // After submission
             setTimeout(() => {
                 loading.style.display = 'none';
-                result.style.display = 'none';
+                result.classList.remove('show');
                 
-                status.textContent = "Successfully Checked In! ✅";
-                status.className = "status success";
-                status.style.display = "block";
+                showStatus("Successfully Checked In! ✅", "success");
                 
-                // Optional auto-close after 3 seconds
+                // Optional auto-close after 5 seconds
                 setTimeout(() => {
-                    alert("Check-in completed! Attendance has been recorded.");
-                }, 3000);
+                    alert("Check-in completed! Attendance has been recorded for " + userName + ".");
+                }, 5000);
             }, 1500);
         }
         
-        // Auto-start camera on page load (optional)
-        window.addEventListener('load', () => {
-            // Small delay to let page render first
-            setTimeout(() => {
-                startButton.click();
-            }, 500);
-        });
+        function showStatus(message, type) {
+            status.textContent = message;
+            status.className = "status show";
+            
+            if (type === "success") {
+                status.classList.add("success");
+                status.classList.remove("error");
+            } else if (type === "error") {
+                status.classList.add("error");
+                status.classList.remove("success");
+            } else {
+                status.classList.remove("success", "error");
+            }
+        }
         
         // Clean up when page is unloaded
         window.addEventListener('beforeunload', () => {
             stopScanning();
+        });
+        
+        // Test if camera is supported
+        window.addEventListener('load', () => {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                showStatus("Your browser does not support camera access. Please use Chrome, Firefox, or Safari on a mobile device.", "error");
+                allowCameraBtn.disabled = true;
+                allowCameraBtn.textContent = "Camera Not Supported";
+                allowCameraBtn.style.background = "#6c757d";
+            }
         });
     </script>
 </body>
