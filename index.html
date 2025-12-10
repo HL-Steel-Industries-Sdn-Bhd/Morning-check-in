@@ -2,169 +2,100 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Morning Check-In</title>
 
-<!-- ZXing QR Scanner -->
 <script src="https://unpkg.com/@zxing/browser@latest"></script>
 
 <style>
-    /* ---- 你的 style 已完整保留并优化 ↓ ---- */
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
     body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        min-height: 100vh;
-        padding: 20px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .container {
-        background: white;
-        border-radius: 20px;
-        padding: 25px;
-        width: 100%;
-        max-width: 500px;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background: #f0f2f5;
         text-align: center;
     }
 
-    .greeting {
-        font-size: 28px;
-        color: #333;
-        margin-bottom: 20px;
-        font-weight: 600;
-        padding: 10px;
-    }
-
-    .camera-container {
-        width: 100%;
-        height: 300px;
-        border: 2px solid #ddd;
-        border-radius: 15px;
-        margin: 20px 0;
-        position: relative;
-        overflow: hidden;
-        background: #000;
-    }
-
-    #video {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        transform: scaleX(-1);
-    }
-
-    .scan-overlay {
-        position: absolute;
-        top: 50%; left: 50%;
-        transform: translate(-50%, -50%);
-        width: 200px; height: 200px;
-        border: 3px solid #4CAF50;
-        border-radius: 10px;
-        pointer-events: none;
-        box-shadow: 0 0 0 1000px rgba(0,0,0,0.5);
-    }
-
-    .scan-line {
-        position: absolute;
-        left: 10px; right: 10px;
-        height: 3px;
-        background: #4CAF50;
-        animation: scan 2s linear infinite;
-    }
-
-    @keyframes scan {
-        0% { top: 10px; }
-        50% { top: 190px; }
-        100% { top: 10px; }
-    }
-
-    .status {
-        display: none;
-        margin-top: 20px;
-        padding: 15px;
-        border-radius: 10px;
-        font-size: 20px;
+    #greeting {
+        margin-top: 18px;
+        font-size: 1.4em;
         font-weight: bold;
     }
 
-    .status.success {
-        display: block;
-        background-color: rgba(76, 175, 80, 0.18);
-        color: #0e801d;
-        border: 2px solid #4CAF50;
+    #video {
+        width: 95vw;
+        max-width: 450px;
+        margin-top: 15px;
+        border-radius: 12px;
+        background: #000;
+    }
+
+    #successMsg {
+        margin-top: 20px;
+        font-size: 1.3em;
+        font-weight: bold;
+        color: #1db954;
+        display: none;
     }
 </style>
 </head>
-
 <body>
-<div class="container">
-    <div id="greeting" class="greeting">Good Morning!</div>
 
-    <!-- Camera -->
-    <div class="camera-container">
-        <video id="video"></video>
+<h2 id="greeting">Good morning!</h2>
 
-        <div class="scan-overlay"></div>
-        <div class="scan-line"></div>
-    </div>
+<video id="video"></video>
 
-    <!-- Scan Result -->
-    <div id="status" class="status"></div>
+<p id="successMsg">Successfully Checked In.</p>
 
-    <!-- Hidden iFrame form submission -->
-    <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
-    <form id="submitForm" action="https://script.google.com/macros/s/AKfycbydi7ubLayA7WpAQzE6JfB4z_HTrOj19bca8I9PZchbYBRNZHqPDGKjpoQ8UpmudH34iA/exec" method="POST" target="hidden_iframe">
-        <input type="hidden" name="name" id="formName">
-        <input type="hidden" name="timestamp" id="formTime">
-    </form>
-</div>
+<iframe name="hiddenFrame" style="display:none;"></iframe>
+<form id="submitForm" method="POST" target="hiddenFrame"></form>
 
 <script>
-/* ========== 1. Get user name from URL ========== */
-const urlParams = new URLSearchParams(window.location.search);
-const userName = urlParams.get("user") || "Guest";
+// Get user from URL
+const username = new URLSearchParams(location.search).get("user") || "Guest";
+document.getElementById("greeting").textContent = `Good morning, ${username}!`;
 
-document.getElementById("greeting").innerText = `Good Morning, ${userName}!`;
+const GAS_URL = "YOUR_GAS_DEPLOYED_WEBAPP_URL";
+const TARGET_TEXT = "CHECK IN RECORD FOR YEAR 2025";
 
-/* Put name into hidden form */
-document.getElementById("formName").value = userName;
+const codeReader = new ZXingBrowser.BrowserQRCodeReader();
 
-/* ========== 2. QR Scanner ========== */
-const codeReader = new ZXing.BrowserQRCodeReader();
-const video = document.getElementById("video");
+async function startCamera() {
+    try {
+        const videoElem = document.getElementById('video');
 
-async function startScanner() {
-    const devices = await ZXing.BrowserQRCodeReader.listVideoInputDevices();
-    const backCamera = devices.find(d => d.label.toLowerCase().includes("back")) || devices[0];
+        const devices = await ZXingBrowser.BrowserCodeReader.listVideoInputDevices();
+        let backCam = devices.find(d => /back|rear|environment/i.test(d.label));
 
-    codeReader.decodeFromVideoDevice(backCamera.deviceId, video, (result, err) => {
-        if (result) {
-            if (result.text === "MORNING-CHECKIN-VERIFIED-2024") {
-                onScanSuccess();
+        if (!backCam) backCam = devices[0]; // fallback
+
+        codeReader.decodeFromVideoDevice(backCam.deviceId, 'video', (result, err) => {
+            if (result) {
+                const text = result.text.trim();
+                if (text === TARGET_TEXT) {
+                    document.getElementById("successMsg").style.display = "block";
+                    
+                    const now = new Date().toISOString();
+                    const form = document.getElementById("submitForm");
+
+                    form.innerHTML = `
+                        <input type="hidden" name="name" value="${username}">
+                        <input type="hidden" name="timestamp" value="${now}">
+                    `;
+                    form.action = GAS_URL;
+                    form.submit();
+
+                    codeReader.reset(); // stop camera
+                }
             }
-        }
-    });
+        });
+
+    } catch (e) {
+        alert("Camera access failed: " + e.message);
+    }
 }
 
-startScanner();
-
-/* ========== 3. After Successful Scan ========== */
-function onScanSuccess() {
-    const status = document.getElementById("status");
-    status.innerText = "Successfully Checked In.";
-    status.classList.add("success");
-
-    const now = new Date().toLocaleString("en-GB", { hour12: false });
-    document.getElementById("formTime").value = now;
-
-    document.getElementById("submitForm").submit();
-}
+startCamera();
 </script>
 
 </body>
