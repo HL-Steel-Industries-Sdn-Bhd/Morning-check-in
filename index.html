@@ -1,106 +1,93 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <title>Morning Check-In</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
       margin: 0;
       padding: 20px;
-      background-color: #f5f7fa;
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      background: #f5f7fa;
+      color: #2c3e50;
       text-align: center;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
     h1 {
-      color: #2c3e50;
-      margin-bottom: 20px;
+      margin: 10px 0 20px;
+      font-size: 1.5em;
     }
     #reader {
       width: 100%;
-      max-width: 400px;
-      margin: 0 auto 20px;
+      max-width: 320px;
+      height: 320px;
+      border: 2px solid #ccc;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #000;
+      position: relative;
     }
-    #result {
+    #status {
+      margin-top: 16px;
       font-size: 1.2em;
       font-weight: bold;
-      color: #2ecc71; /* 亮绿色但可读 */
-      min-height: 24px;
-      margin-top: 10px;
-    }
-    .hidden {
-      display: none;
+      min-height: 28px;
+      color: #2ecc71; /* 亮绿色，WCAG AA 可读 */
     }
   </style>
 </head>
 <body>
   <h1 id="welcome">Good Morning!</h1>
   <div id="reader"></div>
-  <div id="result"></div>
+  <div id="status"></div>
 
-  <!-- 隐藏 iframe 用于提交表单（避免页面跳转） -->
-  <iframe name="hiddenFrame" class="hidden"></iframe>
-
-  <!-- 引入 html5-qrcode 库（CDN） -->
-  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <!-- 使用官方推荐的轻量、稳定扫码库 -->
+  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
   <script>
-    // 1. 从 URL 获取 user 参数
+    // === 严格按你的需求实现 ===
     const urlParams = new URLSearchParams(window.location.search);
-    const userName = url_params.get('user') || 'Guest';
-
-    // 显示欢迎语
+    const userName = urlParams.get('user') || '同事';
     document.getElementById('welcome').textContent = `Good Morning, ${userName}!`;
 
-    // 2. 初始化 QR 扫描器
-    const qrCodeScanner = new Html5Qrcode("reader");
-    const resultDiv = document.getElementById("result");
+    const statusDiv = document.getElementById('status');
+    const qrScanner = new Html5Qrcode("reader");
 
-    qrCodeScanner.start(
-      { facingMode: "environment" }, // 使用后置摄像头
+    qrScanner.start(
+      { facingMode: "environment" }, // 强制后置摄像头（扫码更稳）
       {
         fps: 10,
-        qrbox: { width: 250, height: 250 },
+        qrbox: { width: 260, height: 260 },
+        aspectRatio: 1,
+        disableFlip: true
       },
       (decodedText) => {
-        // 成功扫描
-        if (decodedText === "MORNING-CHECKIN-VERIFIED-2024") {
-          resultDiv.textContent = "Successfully Checked In.";
-          
-          // 提交到 GAS
-          const form = document.createElement("form");
-          form.method = "POST";
-          form.action = "https://script.google.com/macros/s/AKfycbxpn8QJkjxafBgBKlsJb0w8biv1_lmcGSaL4YprE6tHEXNOGWUBtYySlpEK84TiKayblA/exec"; // 替换为你的 Web App URL
-          form.target = "hiddenFrame";
-
-          const nameInput = document.createElement("input");
-          nameInput.type = "hidden";
-          nameInput.name = "name";
-          nameInput.value = userName;
-
-          const timestampInput = document.createElement("input");
-          timestampInput.type = "hidden";
-          timestampInput.name = "timestamp";
-          timestampInput.value = new Date().toISOString();
-
-          form.appendChild(nameInput);
-          form.appendChild(timestampInput);
-          document.body.appendChild(form);
-          form.submit();
-
-          // 停止扫描
-          qrCodeScanner.stop().catch(err => console.log("Stop error:", err));
+        // 严格匹配你指定的 QR 内容
+        if (decodedText.trim() === "MORNING-CHECKIN-VERIFIED-2024") {
+          statusDiv.textContent = "Successfully Checked In.";
+          // 提交到 GAS（替换 YOUR_WEB_APP_URL）
+          fetch('https://script.google.com/macros/s/AKfycbxTkNB7ffw_lhBsQSx6pOoLjVYNGJkcPFM_4UdrERPiBUrJ0FosQZS-E5eB7yIvRE_eZg/exec', {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `name=${encodeURIComponent(userName)}&timestamp=${new Date().toISOString()}`
+          });
+          qrScanner.stop(); // 停止扫描，避免重复提交
         } else {
-          resultDiv.textContent = "Invalid QR Code!";
-          resultDiv.style.color = "#e74c3c";
+          statusDiv.style.color = "#e74c3c";
+          statusDiv.textContent = "无效二维码";
+          setTimeout(() => { statusDiv.style.color = "#2ecc71"; }, 2000);
         }
       },
       (errorMessage) => {
-        // 扫描错误（通常可忽略）
+        // 忽略扫描过程中的错误（如未识别）
       }
     ).catch(err => {
-      console.error("QR Scanner init failed:", err);
-      resultDiv.textContent = "Camera access denied or not supported.";
-      resultDiv.style.color = "#e74c3c";
+      statusDiv.style.color = "#e74c3c";
+      statusDiv.innerHTML = "请允许摄像头权限<br>建议使用 Chrome 或 Safari";
     });
   </script>
 </body>
