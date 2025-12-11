@@ -1,94 +1,298 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-  <title>Morning Check-In</title>
-  <style>
-    body {
-      margin: 0;
-      padding: 20px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
-      background: #f5f7fa;
-      color: #2c3e50;
-      text-align: center;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    h1 {
-      margin: 10px 0 20px;
-      font-size: 1.5em;
-    }
-    #reader {
-      width: 100%;
-      max-width: 320px;
-      height: 320px;
-      border: 2px solid #ccc;
-      border-radius: 12px;
-      overflow: hidden;
-      background: #000;
-      position: relative;
-    }
-    #status {
-      margin-top: 16px;
-      font-size: 1.2em;
-      font-weight: bold;
-      min-height: 28px;
-      color: #2ecc71; /* 亮绿色，WCAG AA 可读 */
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Morning Check-In System</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        
+        .greeting {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 25px;
+            font-weight: 600;
+        }
+        
+        .scanner-container {
+            width: 100%;
+            height: 300px;
+            border: 2px dashed #ddd;
+            border-radius: 15px;
+            margin: 20px 0;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        #reader {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 500;
+            display: none;
+        }
+        
+        .success {
+            background-color: rgba(76, 175, 80, 0.1);
+            color: #2E7D32;
+            border: 2px solid #4CAF50;
+            display: block;
+        }
+        
+        .error {
+            background-color: rgba(244, 67, 54, 0.1);
+            color: #D32F2F;
+            border: 2px solid #F44336;
+            display: block;
+        }
+        
+        .loading {
+            display: none;
+            margin: 20px 0;
+        }
+        
+        .instructions {
+            color: #666;
+            font-size: 14px;
+            margin-top: 15px;
+            line-height: 1.5;
+        }
+        
+        .scan-area {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 200px;
+            border: 3px solid #667eea;
+            border-radius: 10px;
+            animation: pulse 2s infinite;
+            pointer-events: none;
+        }
+        
+        @keyframes pulse {
+            0% { border-color: #667eea; }
+            50% { border-color: #764ba2; }
+            100% { border-color: #667eea; }
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            .greeting {
+                font-size: 24px;
+            }
+            
+            .scanner-container {
+                height: 250px;
+            }
+            
+            .scan-area {
+                width: 150px;
+                height: 150px;
+            }
+        }
+    </style>
 </head>
 <body>
-  <h1 id="welcome">Good Morning!</h1>
-  <div id="reader"></div>
-  <div id="status"></div>
+    <div class="container">
+        <!-- 显示用户名 -->
+        <div class="greeting" id="greeting">Good Morning!</div>
+        
+        <!-- 扫码区域 -->
+        <div class="scanner-container">
+            <div id="reader"></div>
+            <div class="scan-area"></div>
+        </div>
+        
+        <!-- 状态显示 -->
+        <div class="status" id="status"></div>
+        
+        <!-- 加载动画 -->
+        <div class="loading" id="loading">
+            <div style="display:flex;justify-content:center;">
+                <div style="width:40px;height:40px;border:4px solid #f3f3f3;border-top:4px solid #667eea;border-radius:50%;animation:spin 1s linear infinite;"></div>
+            </div>
+            <p style="margin-top:10px;">Submitting attendance...</p>
+        </div>
+        
+        <!-- 说明 -->
+        <div class="instructions">
+            Please scan the official Morning Check-In QR code.<br>
+            Make sure you're in a well-lit area.
+        </div>
+    </div>
 
-  <!-- 使用官方推荐的轻量、稳定扫码库 -->
-  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/minified/html5-qrcode.min.js"></script>
-  <script>
-    // === 严格按你的需求实现 ===
-    const urlParams = new URLSearchParams(window.location.search);
-    const userName = urlParams.get('user') || '同事';
-    document.getElementById('welcome').textContent = `Good Morning, ${userName}!`;
+    <!-- 隐藏iframe用于提交数据 -->
+    <iframe name="hiddenFrame" style="display:none;"></iframe>
 
-    const statusDiv = document.getElementById('status');
-    const qrScanner = new Html5Qrcode("reader");
-
-    qrScanner.start(
-      { facingMode: "environment" }, // 强制后置摄像头（扫码更稳）
-      {
-        fps: 10,
-        qrbox: { width: 260, height: 260 },
-        aspectRatio: 1,
-        disableFlip: true
-      },
-      (decodedText) => {
-        // 严格匹配你指定的 QR 内容
-        if (decodedText.trim() === "MORNING-CHECKIN-VERIFIED-2024") {
-          statusDiv.textContent = "Successfully Checked In.";
-          // 提交到 GAS（替换 YOUR_WEB_APP_URL）
-          fetch('https://script.google.com/macros/s/AKfycbxTkNB7ffw_lhBsQSx6pOoLjVYNGJkcPFM_4UdrERPiBUrJ0FosQZS-E5eB7yIvRE_eZg/exec', {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `name=${encodeURIComponent(userName)}&timestamp=${new Date().toISOString()}`
-          });
-          qrScanner.stop(); // 停止扫描，避免重复提交
-        } else {
-          statusDiv.style.color = "#e74c3c";
-          statusDiv.textContent = "无效二维码";
-          setTimeout(() => { statusDiv.style.color = "#2ecc71"; }, 2000);
+    <script>
+        // ==================== 初始化 ====================
+        const scanner = new Html5Qrcode("reader");
+        const greetingEl = document.getElementById("greeting");
+        const statusEl = document.getElementById("status");
+        const loadingEl = document.getElementById("loading");
+        
+        // ==================== 1. 获取用户名 ====================
+        const urlParams = new URLSearchParams(window.location.search);
+        let userName = urlParams.get('user');
+        
+        if (!userName) {
+            userName = "Guest";
+            statusEl.textContent = "No user specified in URL";
+            statusEl.className = "status error";
+            statusEl.style.display = "block";
         }
-      },
-      (errorMessage) => {
-        // 忽略扫描过程中的错误（如未识别）
-      }
-    ).catch(err => {
-      statusDiv.style.color = "#e74c3c";
-      statusDiv.innerHTML = "请允许摄像头权限<br>建议使用 Chrome 或 Safari";
-    });
-  </script>
+        
+        greetingEl.textContent = `Good Morning, ${userName}!`;
+        
+        // ==================== 2. 启动摄像头（使用已验证的旧版API格式） ====================
+        const startScanner = () => {
+            const qrCodeSuccessCallback = (decodedText, decodedResult) => {
+                console.log("Scanned:", decodedText);
+                
+                if (decodedText === "MORNING-CHECKIN-VERIFIED-2024") {
+                    // 扫描成功 - 停止摄像头
+                    scanner.stop().then(() => {
+                        handleSuccessfulScan(userName);
+                    }).catch(err => {
+                        console.warn("Failed to stop scanner:", err);
+                        handleSuccessfulScan(userName);
+                    });
+                } else {
+                    // 显示错误信息
+                    statusEl.textContent = "Invalid QR Code. Please scan the official check-in code.";
+                    statusEl.className = "status error";
+                    statusEl.style.display = "block";
+                    
+                    // 3秒后清除错误信息
+                    setTimeout(() => {
+                        statusEl.style.display = "none";
+                    }, 3000);
+                }
+            };
+            
+            // 使用旧的API格式（四个参数）- 已验证可用
+            scanner.start(
+                { facingMode: "environment" },  // 使用后置摄像头
+                { 
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 }
+                },
+                qrCodeSuccessCallback,           // 成功回调
+                () => {}                         // ⭐ 关键：必须有的空错误回调
+            ).catch(err => {
+                console.error("Failed to start camera:", err);
+                statusEl.textContent = "Cannot access camera. Please check permissions.";
+                statusEl.className = "status error";
+                statusEl.style.display = "block";
+            });
+        };
+        
+        // ==================== 3. 处理成功扫描 ====================
+        const handleSuccessfulScan = (user) => {
+            // 显示成功消息
+            statusEl.textContent = "Successfully Checked In!";
+            statusEl.className = "status success";
+            statusEl.style.display = "block";
+            
+            // 显示加载动画
+            loadingEl.style.display = "block";
+            
+            // 获取当前时间
+            const now = new Date();
+            const timestamp = now.toISOString();
+            
+            // 提交数据到Google Sheets
+            submitToGoogleSheet(user, timestamp);
+        };
+        
+        // ==================== 4. 提交数据到Google Sheets ====================
+        const submitToGoogleSheet = (user, timestamp) => {
+            // ⭐⭐⭐ 重要：将此URL替换为你自己的GAS Web App URL ⭐⭐⭐
+            const GAS_URL = "https://script.google.com/macros/s/AKfycbwrNHYvqz_54SK42ZsRjUJA5iLLQaZrZW3awSxqtsjIiw3ek-6jaL4dx4r3Xh4PWeoSXA/exec";
+            
+            // 使用隐藏的iframe提交数据（兼容性最好）
+            const form = document.createElement('form');
+            form.method = 'GET';
+            form.action = GAS_URL;
+            form.target = 'hiddenFrame';
+            
+            // 添加参数
+            const userInput = document.createElement('input');
+            userInput.type = 'hidden';
+            userInput.name = 'user';
+            userInput.value = user;
+            
+            const timeInput = document.createElement('input');
+            timeInput.type = 'hidden';
+            timeInput.name = 'timestamp';
+            timeInput.value = timestamp;
+            
+            form.appendChild(userInput);
+            form.appendChild(timeInput);
+            document.body.appendChild(form);
+            
+            // 提交表单
+            form.submit();
+            
+            // 5秒后隐藏加载动画
+            setTimeout(() => {
+                loadingEl.style.display = "none";
+            }, 5000);
+        };
+        
+        // ==================== 5. 页面加载完成后启动扫描器 ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            // 稍等片刻确保所有元素已加载
+            setTimeout(startScanner, 500);
+        });
+        
+        // 添加一个简单的旋转动画
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
 </body>
 </html>
