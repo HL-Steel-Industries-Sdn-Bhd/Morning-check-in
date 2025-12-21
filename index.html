@@ -1,236 +1,277 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Morning Check-In System</title>
-<script src="https://unpkg.com/html5-qrcode"></script>
-
-<style>
-* { margin:0; padding:0; box-sizing:border-box; }
-
-body{
-    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto;
-    background:linear-gradient(135deg,#667eea,#764ba2);
-    min-height:100vh;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    padding:20px;
-}
-
-.container{
-    background:#fff;
-    border-radius:20px;
-    padding:30px;
-    width:100%;
-    max-width:500px;
-    box-shadow:0 20px 60px rgba(0,0,0,.3);
-    text-align:center;
-}
-
-.greeting{
-    font-size:28px;
-    margin-bottom:25px;
-    font-weight:600;
-}
-
-.scanner-container{
-    width:100%;
-    height:300px;
-    border:2px dashed #ddd;
-    border-radius:15px;
-    margin:20px 0;
-    position:relative;
-    overflow:hidden;
-}
-
-#reader{ width:100%; height:100%; }
-
-.scan-area{
-    position:absolute;
-    top:50%;
-    left:50%;
-    transform:translate(-50%,-50%);
-    width:200px;
-    height:200px;
-    border:3px solid #667eea;
-    border-radius:10px;
-    animation:pulse 2s infinite;
-    pointer-events:none;
-}
-
-@keyframes pulse{
-    0%{border-color:#667eea;}
-    50%{border-color:#764ba2;}
-    100%{border-color:#667eea;}
-}
-
-.status{
-    margin:20px 0;
-    padding:15px;
-    border-radius:10px;
-    font-size:18px;
-    font-weight:500;
-    display:none;
-}
-
-.success{
-    background:rgba(76,175,80,.1);
-    color:#2E7D32;
-    border:2px solid #4CAF50;
-    display:block;
-}
-
-.error{
-    background:rgba(244,67,54,.1);
-    color:#D32F2F;
-    border:2px solid #F44336;
-    display:block;
-}
-
-.loading{ display:none; margin-top:20px; }
-
-.instructions{
-    font-size:14px;
-    color:#666;
-    margin-top:15px;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Morning Check-In System</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        
+        .greeting {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 25px;
+            font-weight: 600;
+        }
+        
+        .scanner-container {
+            width: 100%;
+            height: 300px;
+            border: 2px dashed #ddd;
+            border-radius: 15px;
+            margin: 20px 0;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        #reader {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .status {
+            margin: 20px 0;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 500;
+            display: none;
+        }
+        
+        .success {
+            background-color: rgba(76, 175, 80, 0.1);
+            color: #2E7D32;
+            border: 2px solid #4CAF50;
+            display: block;
+        }
+        
+        .error {
+            background-color: rgba(244, 67, 54, 0.1);
+            color: #D32F2F;
+            border: 2px solid #F44336;
+            display: block;
+        }
+        
+        .loading {
+            display: none;
+            margin: 20px 0;
+        }
+        
+        .instructions {
+            color: #666;
+            font-size: 14px;
+            margin-top: 15px;
+            line-height: 1.5;
+        }
+        
+        .scan-area {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 200px;
+            height: 200px;
+            border: 3px solid #667eea;
+            border-radius: 10px;
+            animation: pulse 2s infinite;
+            pointer-events: none;
+        }
+        
+        @keyframes pulse {
+            0% { border-color: #667eea; }
+            50% { border-color: #764ba2; }
+            100% { border-color: #667eea; }
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            .greeting {
+                font-size: 24px;
+            }
+            
+            .scanner-container {
+                height: 250px;
+            }
+            
+            .scan-area {
+                width: 150px;
+                height: 150px;
+            }
+        }
+    </style>
 </head>
-
 <body>
-<div class="container">
-
-<div class="greeting" id="greeting">Good Morning!</div>
-
-<div class="scanner-container">
-    <div id="reader"></div>
-    <div class="scan-area"></div>
-</div>
-
-<div class="status" id="status"></div>
-
-<div class="loading" id="loading">
-    <div style="display:flex;justify-content:center;">
-        <div style="width:40px;height:40px;border:4px solid #eee;border-top:4px solid #667eea;border-radius:50%;animation:spin 1s linear infinite;"></div>
+    <div class="container">
+        <div class="greeting" id="greeting">Good Morning!</div>
+        
+        <div class="scanner-container">
+            <div id="reader"></div>
+            <div class="scan-area"></div>
+        </div>
+        
+        <div class="status" id="status"></div>
+        
+        <div class="loading" id="loading">
+            <div style="display:flex;justify-content:center;">
+                <div style="width:40px;height:40px;border:4px solid #f3f3f3;border-top:4px solid #667eea;border-radius:50%;animation:spin 1s linear infinite;"></div>
+            </div>
+            <p style="margin-top:10px;">Submitting attendance...</p>
+        </div>
+        
+        <div class="instructions">
+            Please scan the official Morning Check-In QR code.<br>
+            Make sure you're in a well-lit area.
+        </div>
     </div>
-    <p style="margin-top:10px;">Submitting attendance...</p>
-</div>
 
-<div class="instructions">
-    Please scan the official Morning Check-In QR code.
-</div>
+    <iframe name="hiddenFrame" style="display:none;"></iframe>
 
-</div>
-
-<iframe name="hiddenFrame" style="display:none;"></iframe>
-
-<script>
-// ==================== 初始化 ====================
-const scanner = new Html5Qrcode("reader");
-const greetingEl = document.getElementById("greeting");
-const statusEl   = document.getElementById("status");
-const loadingEl  = document.getElementById("loading");
-
-// ==================== 用户名 ====================
-const params = new URLSearchParams(window.location.search);
-const userName = params.get("user") || "Guest";
-greetingEl.textContent = `Good Morning, ${userName}!`;
-
-// ==================== 启动扫码 ====================
-function startScanner(){
-
-    const onScanSuccess = (decodedText) => {
-        console.log("Scanned:", decodedText);
-
-        // === ranking QR 还原 timestamp ===
-        const scannedTs = Math.round(Number(decodedText) / Math.PI);
-
-        if (isNaN(scannedTs)) {
-            showError("Invalid QR Code");
-            return;
+    <script>
+        const scanner = new Html5Qrcode("reader");
+        const greetingEl = document.getElementById("greeting");
+        const statusEl = document.getElementById("status");
+        const loadingEl = document.getElementById("loading");
+        
+        const urlParams = new URLSearchParams(window.location.search);
+        let userName = urlParams.get('user');
+        
+        if (!userName) {
+            userName = "Guest";
+            statusEl.textContent = "No user specified in URL";
+            statusEl.className = "status error";
+            statusEl.style.display = "block";
         }
+        
+        greetingEl.textContent = `Good Morning, ${userName}!`;
+        
+        const startScanner = () => {
+            const qrCodeSuccessCallback = (decodedText, decodedResult) => {
+                console.log("Scanned:", decodedText);
 
-        const now  = Date.now();
-        const diff = Math.abs(now - scannedTs);
+                // ======= 唯一修改的验证逻辑 =======
+                const scannedTs = Math.round(Number(decodedText) / Math.PI);
 
-        if (diff < 60000) {
-            // ⭐ 关键：不管 stop 成不成功，都要进成功流程
-            scanner.stop()
-                .then(() => handleSuccess())
-                .catch(() => handleSuccess());
-        } else {
-            showError("QR Code Expired");
-        }
-    };
+                if (!isNaN(scannedTs)) {
+                    const now = Date.now();
+                    const diff = Math.abs(now - scannedTs);
 
-    scanner.start(
-        { facingMode:"environment" },
-        { fps:10, qrbox:{ width:250, height:250 } },
-        onScanSuccess,
-        () => {}
-    ).catch(err=>{
-        statusEl.textContent = "Cannot access camera";
-        statusEl.className = "status error";
-        statusEl.style.display = "block";
-    });
-}
+                    if (diff < 60000) {
+                        scanner.stop().then(() => {
+                            handleSuccessfulScan(userName);
+                        }).catch(err => {
+                            console.warn("Failed to stop scanner:", err);
+                            handleSuccessfulScan(userName);
+                        });
+                        return;
+                    }
+                }
 
-// ==================== 错误显示 ====================
-function showError(msg){
-    statusEl.textContent = msg;
-    statusEl.className = "status error";
-    statusEl.style.display = "block";
-    setTimeout(()=>{ statusEl.style.display="none"; },3000);
-}
+                statusEl.textContent = "Invalid or expired QR Code. Please scan the official check-in code.";
+                statusEl.className = "status error";
+                statusEl.style.display = "block";
 
-// ==================== 成功处理（GAS 一定走） ====================
-function handleSuccess(){
-    statusEl.textContent = "✅ Successfully Checked In!";
-    statusEl.className = "status success";
-    statusEl.style.display = "block";
-    loadingEl.style.display = "block";
-
-    const timestamp = new Date().toISOString();
-    submitToGoogleSheet(userName, timestamp);
-}
-
-// ==================== 提交 GAS（原样保留） ====================
-function submitToGoogleSheet(user, timestamp){
-
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbwrNHYvqz_54SK42ZsRjUJA5iLLQaZrZW3awSxqtsjIiw3ek-6jaL4dx4r3Xh4PWeoSXA/exec";
-
-    const form = document.createElement("form");
-    form.method = "GET";
-    form.action = GAS_URL;
-    form.target = "hiddenFrame";
-
-    const u = document.createElement("input");
-    u.type="hidden"; u.name="user"; u.value=user;
-
-    const t = document.createElement("input");
-    t.type="hidden"; t.name="timestamp"; t.value=timestamp;
-
-    form.appendChild(u);
-    form.appendChild(t);
-    document.body.appendChild(form);
-
-    form.submit();
-
-    setTimeout(()=>{ loadingEl.style.display="none"; },5000);
-}
-
-// ==================== 页面加载 ====================
-document.addEventListener("DOMContentLoaded",()=>{
-    setTimeout(startScanner,500);
-});
-
-// spinner
-const s=document.createElement("style");
-s.textContent='@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}';
-document.head.appendChild(s);
-</script>
-
+                setTimeout(() => {
+                    statusEl.style.display = "none";
+                }, 3000);
+                // ======= 修改结束 =======
+            };
+            
+            scanner.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                qrCodeSuccessCallback,
+                () => {}
+            ).catch(err => {
+                console.error("Failed to start camera:", err);
+                statusEl.textContent = "Cannot access camera. Please check permissions.";
+                statusEl.className = "status error";
+                statusEl.style.display = "block";
+            });
+        };
+        
+        const handleSuccessfulScan = (user) => {
+            statusEl.textContent = "Successfully Checked In!";
+            statusEl.className = "status success";
+            statusEl.style.display = "block";
+            
+            loadingEl.style.display = "block";
+            
+            const now = new Date();
+            const timestamp = now.toISOString();
+            
+            submitToGoogleSheet(user, timestamp);
+        };
+        
+        const submitToGoogleSheet = (user, timestamp) => {
+            const GAS_URL = "https://script.google.com/macros/s/AKfycbwrNHYvqz_54SK42ZsRjUJA5iLLQaZrZW3awSxqtsjIiw3ek-6jaL4dx4r3Xh4PWeoSXA/exec";
+            
+            const form = document.createElement('form');
+            form.method = 'GET';
+            form.action = GAS_URL;
+            form.target = 'hiddenFrame';
+            
+            const userInput = document.createElement('input');
+            userInput.type = 'hidden';
+            userInput.name = 'user';
+            userInput.value = user;
+            
+            const timeInput = document.createElement('input');
+            timeInput.type = 'hidden';
+            timeInput.name = 'timestamp';
+            timeInput.value = timestamp;
+            
+            form.appendChild(userInput);
+            form.appendChild(timeInput);
+            document.body.appendChild(form);
+            form.submit();
+            
+            setTimeout(() => {
+                loadingEl.style.display = "none";
+            }, 5000);
+        };
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(startScanner, 500);
+        });
+        
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
 </body>
 </html>
