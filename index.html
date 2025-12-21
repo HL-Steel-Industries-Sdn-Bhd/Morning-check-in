@@ -182,8 +182,61 @@
         
         greetingEl.textContent = `Good Morning, ${userName}!`;
         
-        // ==================== 2. 处理成功签到 ====================
-        const handleSuccess = () => {
+        // ==================== 2. 启动摄像头 ====================
+        const startScanner = () => {
+            const qrCodeSuccessCallback = (decodedText, decodedResult) => {
+                console.log("Scanned:", decodedText);
+                
+                // === 新逻辑：检查时间戳是否在1分钟内 ===
+                const scannedTs = Math.round(Number(decodedText) / Math.PI);
+                
+                if (isNaN(scannedTs)) {
+                    statusEl.textContent = "Invalid QR Code";
+                    statusEl.className = "status error";
+                    statusEl.style.display = "block";
+                    setTimeout(() => { statusEl.style.display = "none"; }, 3000);
+                    return;
+                }
+                
+                const now = Date.now();
+                const diff = Math.abs(now - scannedTs);
+                
+                if (diff < 60000) { // 1分钟 = 60000毫秒
+                    // YES! 有效二维码 → 提交数据
+                    scanner.stop().then(() => {
+                        handleSuccessfulScan(userName);
+                    }).catch(err => {
+                        console.warn("Failed to stop scanner:", err);
+                        handleSuccessfulScan(userName);
+                    });
+                } else {
+                    // NO! 二维码过期
+                    statusEl.textContent = "QR Code Expired";
+                    statusEl.className = "status error";
+                    statusEl.style.display = "block";
+                    setTimeout(() => { statusEl.style.display = "none"; }, 3000);
+                }
+            };
+            
+            // 使用旧的API格式
+            scanner.start(
+                { facingMode: "environment" },
+                { 
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 }
+                },
+                qrCodeSuccessCallback,
+                () => {}
+            ).catch(err => {
+                console.error("Failed to start camera:", err);
+                statusEl.textContent = "Cannot access camera. Please check permissions.";
+                statusEl.className = "status error";
+                statusEl.style.display = "block";
+            });
+        };
+        
+        // ==================== 3. 处理成功扫描 ====================
+        const handleSuccessfulScan = (user) => {
             // 显示成功消息
             statusEl.textContent = "Successfully Checked In!";
             statusEl.className = "status success";
@@ -197,65 +250,10 @@
             const timestamp = now.toISOString();
             
             // 提交数据到Google Sheets
-            submitToGoogleSheet(userName, timestamp);
+            submitToGoogleSheet(user, timestamp);
         };
         
-        // ==================== 3. 显示错误信息 ====================
-        const showError = (message) => {
-            statusEl.textContent = message;
-            statusEl.className = "status error";
-            statusEl.style.display = "block";
-            
-            // 3秒后清除错误信息
-            setTimeout(() => {
-                statusEl.style.display = "none";
-            }, 3000);
-        };
-        
-        // ==================== 4. 启动摄像头（使用已验证的旧版API格式） ====================
-        const startScanner = () => {
-            const onScanSuccess = (decodedText, decodedResult) => {
-                console.log("Scanned:", decodedText);
-                
-                // === ranking QR 还原 timestamp ===
-                const scannedTs = Math.round(Number(decodedText) / Math.PI);
-                
-                if (isNaN(scannedTs)) {
-                    showError("Invalid QR Code");
-                    return;
-                }
-                
-                const now = Date.now();
-                const diff = Math.abs(now - scannedTs);
-                
-                if (diff < 60000) {
-                    // ⭐ 关键：不管 stop 成不成功，都要进成功流程
-                    scanner.stop()
-                        .then(() => handleSuccess())
-                        .catch(() => handleSuccess());
-                } else {
-                    showError("QR Code Expired");
-                }
-            };
-            
-            // 使用旧的API格式（四个参数）- 已验证可用
-            scanner.start(
-                { facingMode: "environment" },  // 使用后置摄像头
-                { 
-                    fps: 10,
-                    qrbox: { width: 250, height: 250 }
-                },
-                onScanSuccess,                  // 成功回调
-                () => {}                        // ⭐ 关键：必须有的空错误回调
-            ).catch(err => {
-                console.error("Failed to start camera:", err);
-                statusEl.textContent = "Cannot access camera. Please check permissions.";
-                statusEl.className = "status error";
-                statusEl.style.display = "block";
-            });
-        };
-        
-        // ==================== 5. 提交数据到Google Sheets ====================
+        // ==================== 4. 提交数据到Google Sheets ====================
         const submitToGoogleSheet = (user, timestamp) => {
             // ⭐⭐⭐ 重要：将此URL替换为你自己的GAS Web App URL ⭐⭐⭐
             const GAS_URL = "https://script.google.com/macros/s/AKfycbzYYtRWfHBuhQucYsrxYZMo35yn2ouMvmdJiByvw0jqV3BdtEEE_K1D3p5FAsme93Z1Qw/exec";
@@ -290,7 +288,7 @@
             }, 5000);
         };
         
-        // ==================== 6. 页面加载完成后启动扫描器 ====================
+        // ==================== 5. 页面加载完成后启动扫描器 ====================
         document.addEventListener('DOMContentLoaded', () => {
             // 稍等片刻确保所有元素已加载
             setTimeout(startScanner, 500);
