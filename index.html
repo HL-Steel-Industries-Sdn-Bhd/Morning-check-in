@@ -132,15 +132,19 @@
 </head>
 <body>
     <div class="container">
+        <!-- 显示用户名 -->
         <div class="greeting" id="greeting">Good Morning!</div>
         
+        <!-- 扫码区域 -->
         <div class="scanner-container">
             <div id="reader"></div>
             <div class="scan-area"></div>
         </div>
         
+        <!-- 状态显示 -->
         <div class="status" id="status"></div>
         
+        <!-- 加载动画 -->
         <div class="loading" id="loading">
             <div style="display:flex;justify-content:center;">
                 <div style="width:40px;height:40px;border:4px solid #f3f3f3;border-top:4px solid #667eea;border-radius:50%;animation:spin 1s linear infinite;"></div>
@@ -148,20 +152,24 @@
             <p style="margin-top:10px;">Submitting attendance...</p>
         </div>
         
+        <!-- 说明 -->
         <div class="instructions">
             Please scan the official Morning Check-In QR code.<br>
             Make sure you're in a well-lit area.
         </div>
     </div>
 
+    <!-- 隐藏iframe用于提交数据 -->
     <iframe name="hiddenFrame" style="display:none;"></iframe>
 
     <script>
+        // ==================== 初始化 ====================
         const scanner = new Html5Qrcode("reader");
         const greetingEl = document.getElementById("greeting");
         const statusEl = document.getElementById("status");
         const loadingEl = document.getElementById("loading");
         
+        // ==================== 1. 获取用户名 ====================
         const urlParams = new URLSearchParams(window.location.search);
         let userName = urlParams.get('user');
         
@@ -174,43 +182,62 @@
         
         greetingEl.textContent = `Good Morning, ${userName}!`;
         
+        // ==================== 2. 验证 QR 码（从 ranking.html 扫描） ====================
+        function validateQRFromRanking(decodedText) {
+            try {
+                // 解析 QR 码值（与 ranking.html 算法一致）
+                const scannedTs = Math.round(Number(decodedText) / Math.PI);
+                console.log("Recovered timestamp:", scannedTs);
+                
+                const now = Date.now();
+                const diff = Math.abs(now - scannedTs);
+                
+                // 检查 QR 码是否在 1 分钟内有效（与 Morning-QR-scanner-test 一致）
+                if (diff < 60000) {
+                    return true;
+                }
+            } catch (error) {
+                console.error("QR validation error:", error);
+            }
+            return false;
+        }
+        
+        // ==================== 3. 启动摄像头 ====================
         const startScanner = () => {
             const qrCodeSuccessCallback = (decodedText, decodedResult) => {
                 console.log("Scanned:", decodedText);
-
-                // ======= 唯一修改的验证逻辑 =======
-                const scannedTs = Math.round(Number(decodedText) / Math.PI);
-
-                if (!isNaN(scannedTs)) {
-                    const now = Date.now();
-                    const diff = Math.abs(now - scannedTs);
-
-                    if (diff < 60000) {
-                        scanner.stop().then(() => {
-                            handleSuccessfulScan(userName);
-                        }).catch(err => {
-                            console.warn("Failed to stop scanner:", err);
-                            handleSuccessfulScan(userName);
-                        });
-                        return;
-                    }
+                
+                // 验证 QR 码（只验证 ranking.html 的动态 QR 码）
+                if (validateQRFromRanking(decodedText)) {
+                    // 扫描成功 - 停止摄像头
+                    scanner.stop().then(() => {
+                        handleSuccessfulScan(userName);
+                    }).catch(err => {
+                        console.warn("Failed to stop scanner:", err);
+                        handleSuccessfulScan(userName);
+                    });
+                } else {
+                    // 显示错误信息
+                    statusEl.textContent = "Invalid or expired QR Code. Please scan the current check-in code.";
+                    statusEl.className = "status error";
+                    statusEl.style.display = "block";
+                    
+                    // 3秒后清除错误信息，继续扫描
+                    setTimeout(() => {
+                        statusEl.style.display = "none";
+                    }, 3000);
                 }
-
-                statusEl.textContent = "Invalid or expired QR Code. Please scan the official check-in code.";
-                statusEl.className = "status error";
-                statusEl.style.display = "block";
-
-                setTimeout(() => {
-                    statusEl.style.display = "none";
-                }, 3000);
-                // ======= 修改结束 =======
             };
             
+            // 使用旧的API格式（四个参数）- 已验证可用
             scanner.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 250, height: 250 } },
-                qrCodeSuccessCallback,
-                () => {}
+                { facingMode: "environment" },  // 使用后置摄像头
+                { 
+                    fps: 10,
+                    qrbox: { width: 250, height: 250 }
+                },
+                qrCodeSuccessCallback,           // 成功回调
+                () => {}                         // 必须有的空错误回调
             ).catch(err => {
                 console.error("Failed to start camera:", err);
                 statusEl.textContent = "Cannot access camera. Please check permissions.";
@@ -219,27 +246,36 @@
             });
         };
         
+        // ==================== 4. 处理成功扫描 ====================
         const handleSuccessfulScan = (user) => {
+            // 显示成功消息
             statusEl.textContent = "Successfully Checked In!";
             statusEl.className = "status success";
             statusEl.style.display = "block";
             
+            // 显示加载动画
             loadingEl.style.display = "block";
             
+            // 获取当前时间
             const now = new Date();
             const timestamp = now.toISOString();
             
+            // 提交数据到Google Sheets
             submitToGoogleSheet(user, timestamp);
         };
         
+        // ==================== 5. 提交数据到Google Sheets ====================
         const submitToGoogleSheet = (user, timestamp) => {
-            const GAS_URL = "https://script.google.com/macros/s/AKfycbyY2pJJwH3U0gqDTC9Kw_BZCo1Sw5j1TET9Y8xiiLMTsYMD7ogwP7nWpmY0E9NbIUnqtg/exec";
+            // ⭐⭐⭐ 重要：将此URL替换为你自己的GAS Web App URL ⭐⭐⭐
+            const GAS_URL = "https://script.google.com/macros/s/AKfycbwrNHYvqz_54SK42ZsRjUJA5iLLQaZrZW3awSxqtsjIiw3ek-6jaL4dx4r3Xh4PWeoSXA/exec";
             
+            // 使用隐藏的iframe提交数据（兼容性最好）
             const form = document.createElement('form');
             form.method = 'GET';
             form.action = GAS_URL;
             form.target = 'hiddenFrame';
             
+            // 添加参数
             const userInput = document.createElement('input');
             userInput.type = 'hidden';
             userInput.name = 'user';
@@ -253,17 +289,23 @@
             form.appendChild(userInput);
             form.appendChild(timeInput);
             document.body.appendChild(form);
+            
+            // 提交表单
             form.submit();
             
+            // 5秒后隐藏加载动画
             setTimeout(() => {
                 loadingEl.style.display = "none";
             }, 5000);
         };
         
+        // ==================== 6. 页面加载完成后启动扫描器 ====================
         document.addEventListener('DOMContentLoaded', () => {
+            // 稍等片刻确保所有元素已加载
             setTimeout(startScanner, 500);
         });
         
+        // 添加一个简单的旋转动画
         const style = document.createElement('style');
         style.textContent = `
             @keyframes spin {
